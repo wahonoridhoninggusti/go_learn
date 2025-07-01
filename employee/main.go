@@ -26,7 +26,6 @@ func (m *Manager) RemoveEmployee(id int) {
 			return
 		}
 	}
-	return
 }
 
 func (m *Manager) GetAverageSalary() float64 {
