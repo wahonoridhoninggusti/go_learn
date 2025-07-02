@@ -16,7 +16,7 @@ func main() {
 	queries := []int{0, 1, 2}
 	// FindLastNode(graph)
 	// ConcurentBFSGraph(graph, queries, 2)
-	result := ConcurrentBFSQueries(graph, queries)
+	result := ConcurrentBFSQueries(graph, queries, 2)
 	fmt.Println(result)
 }
 
@@ -68,20 +68,22 @@ func BFS(graph map[int][]int, start int, BFSResult chan<- struct {
 }
 
 // func ConcurrentBFSQueries(graph map[int][]int, queries []int, numWorkers int) map[int][]int {
-func ConcurrentBFSQueries(graph map[int][]int, queries []int) map[int][]int {
+func ConcurrentBFSQueries(graph map[int][]int, queries []int, numWorker int) map[int][]int {
 	result := make(map[int][]int)
 	resultChannel := make(chan struct {
 		start int
 		cross []int
 	})
-	//cek worker
-	// if numWorkers == 0 {
-	// 	return map[int][]int{}
-	// }
+
+	// cek worker
+	if numWorker == 0 {
+		return map[int][]int{}
+	}
+	var wg sync.WaitGroup //wait until end
+
+	sem := make(chan struct{}, numWorker)
 
 	// var mu sync.Mutex //handle race cond
-	var wg sync.WaitGroup //wait until end
-	// semaphore := make(chan struct{}, numWorkers)
 
 	for _, s := range queries {
 		wg.Add(1)
@@ -89,7 +91,10 @@ func ConcurrentBFSQueries(graph map[int][]int, queries []int) map[int][]int {
 			defer wg.Done()
 			// semaphore <- struct{}{}
 			// defer wg.Done()
-			// defer func() { <-semaphore }() //exit channel
+			sem <- struct{}{}
+
+			defer func() { <-sem }() //exit channel
+
 			BFS(graph, s, resultChannel)
 
 			// mu.Lock()
