@@ -8,11 +8,11 @@ import (
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("X-Auth-Token")
-		if token != "secret" {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
+		if token != "secret" || token == "" {
+			http.Error(w, "", http.StatusUnauthorized)
+		} else {
+			next.ServeHTTP(w, r)
 		}
-		next.ServeHTTP(w, r)
 	})
 }
 
