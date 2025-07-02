@@ -23,14 +23,18 @@ func secureHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("You are authorized!"))
 }
 
-func main() {
+func SetupServer() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/hello", helloHandler)
 	mux.Handle("/secure", AuthMiddleware(http.HandlerFunc(secureHandler)))
+	return mux
+}
+
+func main() {
 
 	serve := &http.Server{
 		Addr:    ":8081",
-		Handler: mux,
+		Handler: SetupServer(),
 	}
 
 	fmt.Println("Server running at http://localhost:8081")
