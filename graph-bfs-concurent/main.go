@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 func main() {
 	graph := map[int][]int{
@@ -13,7 +16,7 @@ func main() {
 	queries := []int{0, 1, 2}
 	// FindLastNode(graph)
 	// ConcurentBFSGraph(graph, queries, 2)
-	result := ConcurrentBFSQueries(graph, queries, 2)
+	result := ConcurrentBFSQueries(graph, queries)
 	fmt.Println(result)
 }
 
@@ -28,43 +31,119 @@ func main() {
 // 	return max
 // }
 
-// func ConcurentBFSGraph(graph map[int][]int, queries []int, numWorkers int) map[int][]int {
-func ConcurrentBFSQueries(graph map[int][]int, queries []int, numWorkers int) map[int][]int {
-	result := make(map[int][]int)
-	// var semuaJalur [][]int
-	// var queue [][]int
-	max := -1
+type BFSResult struct {
+	Start int
+	Order []int
+}
 
-	for node := range graph {
-		if node > max {
-			max = node
+func BFS(graph map[int][]int, start int, BFSResult chan<- struct {
+	start int
+	cross []int
+}) {
+	visited := make(map[int]bool)
+	queue := []int{start}
+	var cross []int
+
+	for len(queue) > 0 {
+		path := queue[0]
+		queue = queue[1:]
+		if visited[path] {
+			continue
+		}
+
+		visited[path] = true
+		cross = append(cross, path)
+
+		for _, neighbor := range graph[path] {
+			if !visited[neighbor] {
+				queue = append(queue, neighbor)
+			}
 		}
 	}
+
+	BFSResult <- struct {
+		start int
+		cross []int
+	}{start, cross}
+}
+
+// func ConcurrentBFSQueries(graph map[int][]int, queries []int, numWorkers int) map[int][]int {
+func ConcurrentBFSQueries(graph map[int][]int, queries []int) map[int][]int {
+	result := make(map[int][]int)
+	resultChannel := make(chan struct {
+		start int
+		cross []int
+	})
+	//cek worker
+	// if numWorkers == 0 {
+	// 	return map[int][]int{}
+	// }
+
+	// var mu sync.Mutex //handle race cond
+	var wg sync.WaitGroup //wait until end
+	// semaphore := make(chan struct{}, numWorkers)
 
 	for _, s := range queries {
-		visited := make(map[int]bool)
-		queue := []int{s}
-		var cross []int
+		wg.Add(1)
+		go func(s int) {
+			defer wg.Done()
+			// semaphore <- struct{}{}
+			// defer wg.Done()
+			// defer func() { <-semaphore }() //exit channel
+			BFS(graph, s, resultChannel)
 
-		for len(queue) > 0 {
-			path := queue[0]
-			queue = queue[1:]
-			if visited[path] {
-				continue
-			}
-
-			visited[path] = true
-			cross = append(cross, path)
-
-			for _, neighbor := range graph[path] {
-				if !visited[neighbor] {
-					queue = append(queue, neighbor)
-				}
-			}
-
-		}
-		result[s] = cross
+			// mu.Lock()
+			// result[s] = cross
+			// mu.Unlock()
+		}(s)
 	}
+
+	go func() {
+		wg.Wait()
+		close(resultChannel)
+	}()
+
+	for res := range resultChannel {
+		result[res.start] = res.cross
+	}
+
+	return result
+
+	// jobs := make(chan int, len(queries))
+	// // var semuaJalur [][]int
+	// // var queue [][]int
+	// max := -1
+
+	// for node := range graph {
+	// 	if node > max {
+	// 		max = node
+	// 	}
+	// }
+
+	// for _, s := range queries {
+	// 	visited := make(map[int]bool)
+	// 	queue := []int{s}
+	// 	var cross []int
+
+	// 	for len(queue) > 0 {
+	// 		path := queue[0]
+	// 		queue = queue[1:]
+	// 		if visited[path] {
+	// 			continue
+	// 		}
+
+	// 		visited[path] = true
+	// 		cross = append(cross, path)
+
+	// 		for _, neighbor := range graph[path] {
+	// 			if !visited[neighbor] {
+	// 				queue = append(queue, neighbor)
+	// 			}
+	// 		}
+
+	// 	}
+	// 	result[s] = cross
+	// }
 
 	// for len(queue) > 0 {
 	// 	path := queue[0]
@@ -85,7 +164,7 @@ func ConcurrentBFSQueries(graph map[int][]int, queries []int, numWorkers int) ma
 	// 		queue = append(queue, newPath)
 	// 	}
 	// }
-	return result
+	// return result
 }
 
 // func IsContain(path []int, node int) bool {
